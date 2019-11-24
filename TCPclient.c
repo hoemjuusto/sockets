@@ -13,9 +13,33 @@
 #include <unistd.h>
 #include <values.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <wait.h>
+#include <pthread.h>
+
+#define USER_INPUT_LENGTH 50
+#define SERVER_IP_ADDRESS "127.0.0.1"  // insert remote server IP-address here, "127.0.0.1" is for localhost
+#define IP_PORT_NUM 9005 // high number just to make sure it's open
+
+void *receiver_function(void *arg);
+volatile int keepRunning;
 
 int main(){
-
+    // to get current working directory
+    char cwd[PATH_MAX];
+    char filename[] = "cmake-build-debug/assignment2";
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("Current working dir: %s\n", cwd);
+    } else {
+        perror("getcwd() error");
+        exit(1);
+    }
+    char filepath[200];
+    snprintf(filepath, sizeof(filepath), "%s/%s", cwd, filename);
+    char system_call[200];
+    snprintf(system_call, sizeof(system_call), "x-terminal-emulator -e \"%s\"", filepath);
+    // executes server side program on another terminal
+    system("x-terminal-emulator -e \"/home/juuso/CLionProjects/assignment2/cmake-build-debug/assignment2\"");
     // create a socket
     int network_socket;
     network_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -23,83 +47,97 @@ int main(){
     // specify an address for the socket
     struct sockaddr_in server_address;
     server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(9002);  // high number just to make sure that the port is open
-    // IF CONNECTING BACK TO OWN SYSTEM
-    server_address.sin_addr.s_addr = INADDR_ANY;
-    /*
-    //OR IF CONNECTING TO REMOTE IP ADDRESS
+    server_address.sin_port = htons(IP_PORT_NUM);
+
     struct in_addr addr;
     //Convert the IP dotted quad into struct in_addr
-    inet_aton("10.100.29.252", &(addr));
+    inet_aton(SERVER_IP_ADDRESS, &(addr));
     server_address.sin_addr.s_addr = addr.s_addr;
-    */
+
+    printf("Connecting to server...\n");
     int connection_status = connect(network_socket, (struct sockaddr *) &server_address, sizeof(server_address));
     if(connection_status == -1){
         perror("Error connecting to remote socket! \n\n");
+        return 1;
     }
     // receive connection message from the server
     char server_response[256];
     recv(network_socket, &server_response, sizeof(server_response), 0);
+    printf("Got server response: %s\n", server_response);
+    keepRunning = 1;
+    char *user_input = malloc(sizeof(char)*USER_INPUT_LENGTH + 2);
+    // creates a thread to receive server responses
+    pthread_t *thread = malloc(sizeof(pthread_t));
+    pthread_create(thread, NULL, receiver_function, (void *)&network_socket);
 
-    printf("Client got server response: %s\n", server_response);
-
-    int keepRunning = 1;
-    char user_input[256];
-
-    int fd[2];  //fd[0] for input, f[1] for output
-    pipe(fd);
-
-    char parent_message[100];
-
-    int pid;
-
-    pid = fork();
-
-
-
-    if(pid > 0) {
-
-        while (keepRunning) {
+    while (keepRunning) {
+        int check = 1;
+        while(check) {
             printf("\nGive serve-request (submit with enter, e to exit):\n");
-            fgets(user_input, 256, stdin);
-            char delim[] = "\n";
-            strcpy(user_input, strtok(user_input, delim));
-            printf("Sending the request: %s to server\n", user_input);
-            if (strcmp(user_input, "e") == 0) {
-                printf("\n\nExiting the bank!\n\n");
-                send(network_socket, user_input, sizeof(user_input), 0);
-                strcpy(parent_message, "e");
-                write(fd[1], parent_message, sizeof(parent_message));
-                keepRunning = 0;
-            } else {
-                send(network_socket, user_input, sizeof(user_input), 0);
+
+            if (fgets(user_input, USER_INPUT_LENGTH, stdin)==NULL){
+                printf("Error, input too long\n");
+            } else{
+                char *p;
+                p = strchr(user_input, '\n');
+                if(p){//check exist newline
+                    *p = 0;
+                } else {
+                    scanf("%*[^\n]");scanf("%*c");//clear upto newline
+                }
+                check = 0;
             }
         }
-    }else if(pid == 0){
-
-        close(fd[1]);
-
-        while(keepRunning) {
-
-
-            int flags = fcntl(fd[0], F_GETFL, 0);
-
-            fcntl(fd[0], F_SETFL, flags | O_NONBLOCK);  // to make read non blocking
-
-            if(read(fd[0], parent_message, 100)!=-1){
-                keepRunning = 0;
-            }
-
-            recv(network_socket, &server_response, sizeof(server_response), 0);
-            //printf("Server sent response: %s\n", server_response);
+        char delim[] = "\n";
+        user_input = strsep(&user_input, delim);
+        printf("Sending the request: %s to server\n", user_input);
+        if (strcmp(user_input, "e") == 0) {
+            printf("\n\nExiting the bank!\n\n");
+            send(network_socket, user_input, sizeof(user_input), 0);
+            keepRunning = 0;
+        } else {
+            send(network_socket, user_input, sizeof(user_input), 0);
         }
-        close(network_socket);
-        exit(0);
-    }else{
-
     }
-
+    pthread_join(*thread, NULL);
     close(network_socket);
+    free(user_input);
+    free(thread);
 
     return 0;
+}
+
+void *receiver_function(void *arg){
+
+    int network_socket = *(int *) arg;
+    char server_response[256];
+
+    char cwd[PATH_MAX];
+    char filename[] = "request_responses.txt";
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        // printf("Current working dir: %s\n", cwd);
+    } else {
+        perror("getcwd() error");
+        exit(1);
+    }
+    char filepath[200];
+
+    snprintf(filepath, sizeof(filepath), "%s/%s", cwd, filename);
+
+    FILE *f = fopen(filepath, "w");
+    if(f==NULL){
+        perror("Opening file for server responses failed");
+    }
+    char system_call[200];
+    snprintf(system_call, sizeof(system_call), "x-terminal-emulator -e \"tail -f %s\"", filepath);
+
+    system(system_call);  // runs tail -f filepath on different console
+
+    while(keepRunning) {
+        recv(network_socket, &server_response, sizeof(server_response), 0);
+        fprintf(f, "Server sent response: %s\n", server_response);
+        fflush(f);
+    }
+
+    fclose(f);
 }
