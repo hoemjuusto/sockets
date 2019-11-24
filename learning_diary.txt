@@ -1,0 +1,47 @@
+Lähdin liikkeelle thread ohjelmointiin tutustumisella youtube-tutoriaalisarjan (https://www.youtube.com/watch?v=nVESQQg-Oiw) pohjalta.
+Erona prosessiohjelmointiin threadeissa on jaettu muisti threadien välillä, mikä toisaalta helpottaa ohjelman rakentamista,
+mutta vaatii synkronointia muistin käytössä. Sain yhden threadin perusrakenteen toimimaan.
+
+Git commit viesti: "initial commit, main has basic thread call structure" (siirrän projektia läppärini ja pöytäkoneeni välillä
+käyttäen gitiä)
+________________________________________________________________________________________________________________________
+
+Sain lisättyä useamman threadin. Threadit tallentuvat thread-ryhmämuuttujaan. Lisäksi rupesin toteuttamaan jonorakenteen
+toteutusta. Netistä tuntuu löytyvän paljon esimerkkejä.
+________________________________________________________________________________________________________________________
+
+Löysin vanhasta C-peruskurssi tehtävästäni (*Kirjalista*) tarkoitukseen täydellisesti sopivan jonorakenteen. Vähän muuttelemalla, korjaamalla
+bugeja ja muuttamalla nimiä sain sen sopimaan.
+
+"added queue structure"
+________________________________________________________________________________________________________________________
+
+Lähdin rakentamaan threadien ajamaa serverifunktiota. Jokaisella threadillä pitää siis olla oma jononsa. Tallennan nämä
+globaaliin jonoryhmämuuttujaan, josta entry-function (erillinen threadi ajamassa) voi valkata lyhimmän jonon ja asettaa
+siihen char requestin jonoon. Minimijonon kertovan funktion toteutuksessa hieman hankaluuksia, erikseen luomani jonojen pituuksien
+ryhmä ei tunnu päivittyvän lisäämisistä yms.
+
+________________________________________________________________________________________________________________________
+
+Luovuin erillisestä pituuslistasta, koska helppohan minun on queue structissa pitää yllä vain size muuttujaa, joka päivittyy
+enqueuen ja dequeuen toimesta. Saan välitettyä antamiani syötteitä oikein ja entry-function jakaa ne tasaisesti jonojen välille.
+________________________________________________________________________________________________________________________
+
+Lisäsin melkoisen määrän struct-rakenteita (server, account, bank), joista jokaineen pitää sisällään omia tärkeitä
+tietojaan, serverillä id ja jono, accountilla henkilökohtainen balance, pankilla kokonais balance ja lista accounteista. Näin rakenteesta tulee
+melko siisti ja modulaarinen. Näiden structien alaisuuteen voin rakentaa myös niille funktioita, kuten Queuella on jo.
+
+"added structures to hold server, account and bank, but not yet used them"
+________________________________________________________________________________________________________________________
+
+Luovuin serverirakenteesta, koska loppuunsa se olisi ollut aika turha ja olisin joutunut muokkaamaan jo toimivaa toteutustani.
+Bank-structuresta tulee globaalimuuttuja, jonka kautta threadit pääsevät päivittämään pankin ja asiakkaiden tasetta.
+
+"removed unneccessary server struct"
+________________________________________________________________________________________________________________________
+Sain tehtyä ensimmäisen komennon: lisää uusi asiakas (c 1 23). Tämä tosin vaati aika monen funktion toteuttamista, kuten
+tilin jo valmiiksi olemassaolon tarkistusta, ja tietty myös tilin listaamiskomennon toteutusta, enhän muuten tietäisi
+mitään lisättäneen.
+
+"create account command added"
+________________________________________________________________________________________________________________________

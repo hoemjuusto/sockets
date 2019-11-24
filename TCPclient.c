@@ -17,7 +17,7 @@
 #include <wait.h>
 #include <pthread.h>
 
-#define USER_INPUT_LENGTH 50
+#define USER_INPUT_LENGTH 100
 #define SERVER_IP_ADDRESS "127.0.0.1"  // insert remote server IP-address here, "127.0.0.1" is for localhost
 #define IP_PORT_NUM 9005 // high number just to make sure it's open
 
@@ -25,6 +25,7 @@ void *receiver_function(void *arg);
 volatile int keepRunning;
 
 int main(){
+    printf("\n\nWelcome to my bank-app prototype! Those two extra terminals that opened are for responses to your requests and for server side info.\n\n");
     // to get current working directory
     char cwd[PATH_MAX];
     char filename[] = "cmake-build-debug/assignment2";
@@ -90,13 +91,13 @@ int main(){
         }
         char delim[] = "\n";
         user_input = strsep(&user_input, delim);
-        printf("Sending the request: %s to server\n", user_input);
         if (strcmp(user_input, "e") == 0) {
             printf("\n\nExiting the bank!\n\n");
             send(network_socket, user_input, sizeof(user_input), 0);
             keepRunning = 0;
         } else {
-            send(network_socket, user_input, sizeof(user_input), 0);
+            printf("Sending the request: %s to server\n", user_input);
+            send(network_socket, user_input, sizeof(char)*USER_INPUT_LENGTH + 2, 0);
         }
     }
     pthread_join(*thread, NULL);
@@ -133,10 +134,16 @@ void *receiver_function(void *arg){
 
     system(system_call);  // runs tail -f filepath on different console
 
+    fprintf(f, "\n\nThis terminal is opened for outputting server responses to your requests\n\n");
+    fflush(f);
+
     while(keepRunning) {
         recv(network_socket, &server_response, sizeof(server_response), 0);
-        fprintf(f, "Server sent response: %s\n", server_response);
-        fflush(f);
+        if(server_response[0]!='\0') {
+            fprintf(f, "Server sent response: %s\n", server_response);
+            fflush(f);
+            strcpy(server_response, "\0");
+        }
     }
 
     fclose(f);
